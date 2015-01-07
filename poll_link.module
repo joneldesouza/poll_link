@@ -1,0 +1,152 @@
+<?php
+/**
+ * @file
+ * The functions for the Email Signups module.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function poll_link_permission() {
+  return array(
+    'access poll_link page' => array(
+      'title' => t('Access poll link page'),
+      'description' => t('Allow users to access poll link page'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function poll_link_menu() {
+  $items['poll_link'] = array(
+    'title' => 'Count Page',
+    'page callback' => 'page_poll_link_page',
+    'access arguments' => array('access poll_link page'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/content/poll_link'] = array(
+    'title' => 'Count Likes',
+    'page callback' => 'page_poll_link_admin',
+    'access arguments' => array('access poll_link page'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/content/poll_link/export'] = array(
+    'title' => 'Export count',
+    'page callback' => 'page_poll_link_export',
+    'access arguments' => array('access poll_link page'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Constructs a page.
+ * The simple page callback, mapped to the path 'admin/content/email_signups'.
+ */
+function page_poll_link_page() {
+  $poll =  $_GET['poll'];
+  $newsletter =  $_GET['newsletter'];
+  $like =  $_GET['like'];
+  $unlike =  $_GET['unlike'];
+  $error = "<p>Dados não conferem!</p>";
+
+  if (empty($newsletter)) {
+    return $error;
+  }
+  else  {
+    //dpm($entry);
+    $insert = db_insert('poll_link')
+      ->fields(array(
+        'poll' => $poll,
+        'newsletter' => $newsletter,
+        'liked' => $like,
+        'notlike' => $unlike,
+        'created' => REQUEST_TIME,
+      ))
+      ->execute();
+    return 'Thank you for subscribing!';
+  }
+
+}
+
+function page_poll_link_admin() {
+  $header = array(
+    array('data' => t('Poll'), 'field' => 'poll'),
+    array('data' => t('Newsletter'), 'field' => 'newsletter'),
+    array('data' => t('Liked'), 'field' => 'liked'),
+    array('data' => t('Not Like'), 'field' => 'notlike'),
+    array('data' => t('Created'), 'field' => 'created', 'sort' => 'desc'),
+  );
+  $sql = db_select('poll_link')
+    ->fields('poll_link', array('poll', 'newsletter', 'liked', 'notlike', 'created'))
+    // ->orderBy('email', 'DESC')
+    ->extend('TableSort')
+    ->orderByHeader($header);
+
+  $result = $sql->execute();
+
+  foreach ($result as $row) {
+    //dpm($row);
+    $created = gmdate("d/m/Y H:i:s", $row->created);
+    $rows[] = array($row->poll, $row->newsletter, $row->liked, $row->notlike, $created);
+  }
+  dpm($rows);
+
+  $per_page = 20;
+  // Initialize the pager
+  $current_page = pager_default_initialize(count($rows), $per_page);
+  // Split your list into page sized chunks
+  $chunks = array_chunk($rows, $per_page, TRUE);
+  // Show the appropriate items from the list
+  $output = theme('table', array('header' => $header, 'rows' => $chunks[$current_page], 'sticky' => TRUE, 'empty' => 'No registered mail.'));
+  // Show the pager
+  $output .= theme('pager', array('quantity', count($rows)));
+  return $output;
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter(&$data, $router_item, $root_path).
+ */
+function poll_link_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  if ($root_path == 'admin/content/poll_link') {
+    // Add an action linking to node/add to all pages.
+    $data['actions']['output'][] = array(
+      '#theme' => 'menu_local_task',
+      '#link' => array(
+        'title' => t('Export count'),
+        'href' => 'admin/content/poll_link/export',
+        'localized_options' => array(
+          'attributes' => array(
+            'title' => t('Export count'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * The simple page callback, mapped to the path 'admin/content/email_signups/export'.
+ */
+function page_poll_link_export() {
+  $xls_output = '';
+  $sql = db_select('poll_link')
+    ->fields('poll_link', array('poll', 'newsletter', 'liked', 'notlike', 'created'))
+    ->orderBy('created', 'DESC');
+
+  $result = $sql->execute();
+
+  foreach ($result as $row) {
+    $created = gmdate("d/m/Y H:i:s", $row->created);
+    $row_xls_output .= "" . $row->poll . "" . "\t" . "" . $row->newsletter . "" . "\t" . "" . $row->liked . "" . "\t" . "" . $row->notlike . "" . "\t" . "" . $created . "" . "\r";
+  }
+
+  $xls_output .= $row_xls_output;
+  header("Content-Type: application/xls");
+  header("Content-Disposition: attachment; filename=export_count.xls");
+  print $xls_output;
+  exit;
+}
+

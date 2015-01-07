@@ -1,0 +1,58 @@
+<?php
+/**
+ * @file
+ * Install, update, and uninstall functions for the Email Signups module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function poll_link_schema() {
+  $schema['poll_link'] = array(
+    'description' => 'The base table for subscriptions.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'The primary identifier for a subscription.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'poll' => array(
+        'description' => 'The name of a poll.',
+        'type' => 'varchar',
+        'length' => 254,
+        'not null' => TRUE
+      ),
+      'newsletter' => array(
+        'description' => 'The name of a newsletter.',
+        'type' => 'varchar',
+        'length' => 254,
+        'not null' => TRUE
+      ),
+      'liked' => array(
+        'description' => 'The email address of a subscription.',
+        'type' => 'varchar',
+        'length' => 254,
+        'not null' => TRUE
+      ),
+      'notlike' => array(
+        'description' => 'The email address of a subscription.',
+        'type' => 'varchar',
+        'length' => 254,
+        'not null' => TRUE
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the subscription was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0
+      )
+    ),
+    'primary key' => array('id')
+  );
+  return $schema;
+}
+
+function poll_link_uninstall() {
+  drupal_uninstall_schema('poll_link');
+}
